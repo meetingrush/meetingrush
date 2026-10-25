@@ -1,0 +1,46 @@
+import AppKit
+import MeetingRushCore
+import SwiftUI
+
+struct OverlayActions {
+    /// Nil when the meeting has no join link.
+    let join: (() -> Void)?
+    let snooze: (Date) -> Void
+    let dismiss: () -> Void
+}
+
+/// Covers every screen, including full-screen apps on other Spaces, with the meeting alert.
+@MainActor
+final class OverlayController {
+    private var panels: [NSPanel] = []
+
+    func show(_ meeting: Meeting, actions: OverlayActions) {
+        hide()
+        let screens = NSScreen.screens.sorted { lhs, _ in lhs == NSScreen.main }
+        panels = screens.map { screen in
+            let panel = OverlayPanel(contentRect: screen.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+            panel.level = .screenSaver
+            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+            panel.isOpaque = false
+            panel.backgroundColor = .clear
+            panel.hasShadow = false
+            panel.isReleasedWhenClosed = false
+            panel.contentView = NSHostingView(rootView: OverlayView(meeting: meeting, actions: actions))
+            panel.setFrame(screen.frame, display: true)
+            panel.orderFrontRegardless()
+            return panel
+        }
+        NSApp.activate()
+        panels.first?.makeKeyAndOrderFront(nil)
+    }
+
+    func hide() {
+        panels.forEach { $0.close() }
+        panels = []
+    }
+}
+
+/// Borderless panels refuse key status by default, which would leave the keyboard shortcuts dead.
+private final class OverlayPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+}

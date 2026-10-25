@@ -1,6 +1,7 @@
 import AppKit
 import MeetingRushCore
 import Observation
+import os
 
 /// Pulls meetings from every provider, schedules alerts and drives the overlay.
 @MainActor
@@ -19,6 +20,8 @@ final class AppCoordinator {
     private var alertTimer: Timer?
     private var heartbeat: Timer?
     private var observers: [NSObjectProtocol] = []
+    private var scheduledAlertDate: Date?
+    private let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MeetingRush", category: "alerts")
 
     private static let lookBehind: TimeInterval = 60 * 60
     /// Long enough that the menu still lists the next few meetings after a quiet stretch.
@@ -86,17 +89,21 @@ final class AppCoordinator {
     }
 
     func dismiss(_ meeting: Meeting) {
+        log.notice("Dismissed meeting starting \(meeting.start, privacy: .public)")
         planner.dismiss(meeting)
         closeOverlay()
     }
 
     func snooze(_ meeting: Meeting, until date: Date) {
+        log.notice("Snoozed meeting starting \(meeting.start, privacy: .public) until \(date, privacy: .public)")
         planner.snooze(meeting, until: date)
         closeOverlay()
     }
 
     /// Shows the overlay for the next meeting, or a sample one, without touching alert state.
     func previewAlert() {
+        // The overlay holds one alert at a time; replacing a real one would leave it unanswered forever.
+        guard showing == nil else { return }
         let now = Date()
         let meeting = upcoming.first ?? Meeting(
             id: "preview",
@@ -117,12 +124,14 @@ final class AppCoordinator {
     private func evaluate() {
         let now = Date()
         if showing == nil, let meeting = planner.dueMeetings(in: meetings, at: now).first {
-            show(meeting)
+            show(meeting, at: now)
         }
         scheduleAlertTimer(at: planner.nextAlertDate(in: meetings, after: now))
     }
 
-    private func show(_ meeting: Meeting) {
+    private func show(_ meeting: Meeting, at now: Date) {
+        let lateness = planner.alertDate(for: meeting).map { now.timeIntervalSince($0) } ?? 0
+        log.notice("Showing alert for meeting starting \(meeting.start, privacy: .public), \(Int(lateness), privacy: .public)s after its alert time")
         showing = meeting
         overlay.show(meeting, actions: OverlayActions(
             join: meeting.joinLink == nil ? nil : { [weak self] in self?.join(meeting) },
@@ -146,6 +155,10 @@ final class AppCoordinator {
     }
 
     private func scheduleAlertTimer(at date: Date?) {
+        if date != scheduledAlertDate {
+            log.notice("Next alert at \(date?.description ?? "none", privacy: .public) (\(self.meetings.count, privacy: .public) meetings loaded)")
+            scheduledAlertDate = date
+        }
         alertTimer?.invalidate()
         alertTimer = nil
         guard let date else { return }

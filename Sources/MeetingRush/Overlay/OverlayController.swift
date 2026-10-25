@@ -25,6 +25,8 @@ final class OverlayController {
             panel.backgroundColor = .clear
             panel.hasShadow = false
             panel.isReleasedWhenClosed = false
+            // Panels hide when their app deactivates by default, which would drop the alert on the first click elsewhere.
+            panel.hidesOnDeactivate = false
             panel.contentView = NSHostingView(rootView: OverlayView(meeting: meeting, actions: actions))
             panel.setFrame(screen.frame, display: true)
             panel.orderFrontRegardless()

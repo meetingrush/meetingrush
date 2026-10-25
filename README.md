@@ -28,6 +28,14 @@ make test
 The app target avoids SwiftUI macros (`@State`, `@Entry`, `@Previewable`) for the same reason: their plugin is missing from the
 Command Line Tools, so a Homebrew build would fail. Use `@Observable` models and `@AppStorage` instead.
 
+## Troubleshooting
+
+Alert scheduling is logged. To see why an alert did or didn't fire:
+
+```sh
+log show --last 4h --predicate 'subsystem == "dev.meetingrush.MeetingRush"' --style compact
+```
+
 ## Signing during development
 
 `make` signs ad-hoc by default. An ad-hoc signature changes with every build, so macOS may ask for calendar access again

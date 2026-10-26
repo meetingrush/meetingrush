@@ -16,11 +16,17 @@ public struct CalendarInfo: Identifiable, Hashable, Sendable {
     /// The account the calendar belongs to, such as "iCloud" or an email address.
     public let account: String
     public let color: Color?
+    /// The `CalendarProvider.id` of the provider that reads this calendar.
+    public let source: String
+    /// Whether the calendar alerts until the user chooses otherwise.
+    public let enabledByDefault: Bool
 
-    public init(id: String, title: String, account: String, color: Color?) {
+    public init(id: String, title: String, account: String, color: Color?, source: String, enabledByDefault: Bool = true) {
         self.id = id
         self.title = title
         self.account = account
         self.color = color
+        self.source = source
+        self.enabledByDefault = enabledByDefault
     }
 }

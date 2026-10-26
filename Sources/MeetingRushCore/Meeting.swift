@@ -17,6 +17,8 @@ public struct Meeting: Identifiable, Hashable, Sendable {
     public let organizer: Participant?
     /// Invitees other than the organiser.
     public let attendees: [Participant]
+    /// The event's iCalendar UID, shared by every source's copy of the same event.
+    public let externalID: String?
 
     public init(
         id: String,
@@ -30,7 +32,8 @@ public struct Meeting: Identifiable, Hashable, Sendable {
         joinLink: MeetingLink? = nil,
         notes: String? = nil,
         organizer: Participant? = nil,
-        attendees: [Participant] = []
+        attendees: [Participant] = [],
+        externalID: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -44,6 +47,7 @@ public struct Meeting: Identifiable, Hashable, Sendable {
         self.notes = notes
         self.organizer = organizer
         self.attendees = attendees
+        self.externalID = externalID
     }
 }
 

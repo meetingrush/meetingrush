@@ -1,11 +1,34 @@
 # MeetingRush
 
 A macOS menu bar app that takes over the screen shortly before a meeting starts, with buttons to join the call, snooze or dismiss.
-It reads events from Calendar.app, so it sees every account added there: iCloud, Exchange/Microsoft 365, Google.
-Google Meet, Teams and Zoom links are found in the event's URL, location or notes, including links wrapped by Outlook Safe Links.
+It reads events from Calendar.app, so it sees every account added there (iCloud, Exchange/Microsoft 365, Google),
+and can also read Google Calendar directly.
+Google Meet, Teams and Zoom links are found in the event, including links wrapped by Outlook Safe Links.
 The menu lists the next few meetings, and Settings chooses which calendars alert.
 
 Requires macOS 14 or later.
+
+## Install
+
+```sh
+brew install meetingrush/tap/meetingrush
+```
+
+## Google Calendar
+
+MeetingRush can read Google Calendar through Google's API, which also picks up Meet links reliably.
+It signs in with an OAuth client from your own Google Cloud project:
+
+1. In the [Google Cloud console](https://console.cloud.google.com/), create a project.
+2. Under **APIs & Services → Library**, enable the **Google Calendar API**.
+3. Under **Google Auth Platform**, fill in **Branding** (an app name and your email) and set **Audience** to **External**.
+   Then either add yourself as a test user, in which case Google signs you out every 7 days, or click **Publish app**,
+   which shows an "unverified app" warning once when you connect and doesn't expire.
+4. Under **Clients**, create a client of type **Desktop app** and copy its client ID and secret.
+5. In MeetingRush, open **Settings → Google Calendar**, paste both, and click **Connect Google Account…**.
+
+MeetingRush only asks for read-only calendar access. A Google Workspace admin may need to allow the client before a work
+account can connect. If the same account is also added to Calendar.app, each meeting still alerts once.
 
 ## Build and run
 
@@ -68,3 +91,7 @@ New calendar sources implement `CalendarProvider` and are added to the list pass
 
 `packaging/homebrew/meetingrush.rb` builds from source, so Gatekeeper never quarantines the result and no Developer ID is needed.
 Copy it into a tap repository and fill in the release URL, checksum and licence.
+
+## Licence
+
+MeetingRush is free software, released under the GNU General Public License v3.0 or later. See [LICENSE](LICENSE).

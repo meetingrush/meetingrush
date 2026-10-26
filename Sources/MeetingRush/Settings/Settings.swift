@@ -4,8 +4,10 @@ import MeetingRushCore
 enum SettingsKey {
     static let leadTimeMinutes = "leadTimeMinutes"
     static let includeAllDayEvents = "includeAllDayEvents"
-    /// Calendars the user unticked. Stored as exclusions so newly added calendars alert by default.
-    static let excludedCalendarIDs = "excludedCalendarIDs"
+    /// The calendars the user ticked or unticked, as `[CalendarInfo.ID: Bool]`.
+    static let calendarChoices = "calendarChoices"
+    /// The unticked calendars, as stored before per-provider defaults existed.
+    static let legacyExcludedCalendarIDs = "excludedCalendarIDs"
 
     static func registerDefaults(in defaults: UserDefaults = .standard) {
         defaults.register(defaults: [leadTimeMinutes: 1, includeAllDayEvents: false])

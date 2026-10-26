@@ -15,7 +15,8 @@ enum MeetingRushApp {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let coordinator = AppCoordinator(providers: [EventKitCalendarProvider()])
+    private let google = GoogleCalendarProvider()
+    private lazy var coordinator = AppCoordinator(providers: [google, EventKitCalendarProvider()])
     private var settingsWindow: SettingsWindowController?
     private var menuPanel: MenuPanelController?
     private var appNapActivity: NSObjectProtocol?
@@ -28,7 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             reason: "Meeting alerts must fire on time"
         )
         SettingsKey.registerDefaults()
-        let settingsWindow = SettingsWindowController(rootView: SettingsView(coordinator: coordinator, loginItem: LoginItem()))
+        let settingsWindow = SettingsWindowController(rootView: SettingsView(coordinator: coordinator, google: google, loginItem: LoginItem()))
         self.settingsWindow = settingsWindow
         menuPanel = MenuPanelController(coordinator: coordinator, openSettings: settingsWindow.show)
         Task { await coordinator.start() }

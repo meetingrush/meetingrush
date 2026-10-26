@@ -1,10 +1,10 @@
-# Template for a tap repository. Replace OWNER, the sha256 and the licence before publishing.
+# Template for the meetingrush/homebrew-tap repository. Set the release URL and sha256 for each version.
 class Meetingrush < Formula
   desc "Full-screen meeting alerts with one-click join for macOS"
-  homepage "https://github.com/OWNER/meetingrush"
-  url "https://github.com/OWNER/meetingrush/archive/refs/tags/v0.1.0.tar.gz"
+  homepage "https://github.com/meetingrush/meetingrush"
+  url "https://github.com/meetingrush/meetingrush/archive/refs/tags/v0.1.0.tar.gz"
   sha256 "REPLACE_WITH_SHA256"
-  license "REPLACE_WITH_LICENSE"
+  license "GPL-3.0-or-later"
 
   depends_on macos: :sonoma
 

@@ -5,7 +5,8 @@ import MeetingRushCore
 /// Reads the calendars synced into Calendar.app: iCloud, Exchange/M365, Google and any other account added in System Settings.
 @MainActor
 final class EventKitCalendarProvider: CalendarProvider {
-    let id = "apple-calendar"
+    static let sourceID = "apple-calendar"
+    let id = sourceID
     private let store = EKEventStore()
     private var observer: NSObjectProtocol?
 
@@ -23,6 +24,10 @@ final class EventKitCalendarProvider: CalendarProvider {
         }
     }
 
+    static var hasAccess: Bool {
+        EKEventStore.authorizationStatus(for: .event) == .fullAccess
+    }
+
     func calendars() async throws -> [CalendarInfo] {
         store.calendars(for: .event).map { calendar in
             let rgb = calendar.color?.usingColorSpace(.sRGB)
@@ -30,13 +35,18 @@ final class EventKitCalendarProvider: CalendarProvider {
                 id: calendar.calendarIdentifier,
                 title: calendar.title,
                 account: calendar.source?.title ?? "Other",
-                color: rgb.map { CalendarInfo.Color(red: $0.redComponent, green: $0.greenComponent, blue: $0.blueComponent) }
+                color: rgb.map { CalendarInfo.Color(red: $0.redComponent, green: $0.greenComponent, blue: $0.blueComponent) },
+                source: id
             )
         }
     }
 
-    func meetings(from start: Date, to end: Date) async throws -> [Meeting] {
-        let predicate = store.predicateForEvents(withStart: start, end: end, calendars: nil)
+    func meetings(from start: Date, to end: Date, in calendars: [CalendarInfo]) async throws -> [Meeting] {
+        let ids = Set(calendars.map(\.id))
+        let selected = store.calendars(for: .event).filter { ids.contains($0.calendarIdentifier) }
+        // An empty list would make the predicate match every calendar.
+        guard !selected.isEmpty else { return [] }
+        let predicate = store.predicateForEvents(withStart: start, end: end, calendars: selected)
         return store.events(matching: predicate)
             .filter { $0.status != .canceled && !$0.isDeclinedByCurrentUser }
             .map(Meeting.init(event:))
@@ -84,7 +94,8 @@ private extension Meeting {
             notes: event.notes,
             organizer: organizer,
             // Exchange lists the organiser among the attendees as well.
-            attendees: (event.attendees ?? []).map(Participant.init).filter { $0.email == nil || $0.email != organizer?.email }
+            attendees: (event.attendees ?? []).map(Participant.init).filter { $0.email == nil || $0.email != organizer?.email },
+            externalID: event.calendarItemExternalIdentifier
         )
     }
 }

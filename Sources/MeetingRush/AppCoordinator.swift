@@ -9,8 +9,9 @@ import os
 final class AppCoordinator {
     private(set) var upcoming: [Meeting] = []
     private(set) var calendars: [CalendarInfo] = []
-    private(set) var excludedCalendarIDs: Set<CalendarInfo.ID> = []
-    private(set) var accessDenied = false
+    private(set) var selection = CalendarSelection()
+    /// The `CalendarProvider.id`s of the providers that can read calendars.
+    private(set) var providersWithAccess: Set<String> = []
 
     private let providers: [any CalendarProvider]
     private let overlay = OverlayController()
@@ -32,12 +33,11 @@ final class AppCoordinator {
     }
 
     func start() async {
-        var anyGranted = false
+        selection = Self.loadSelection()
         for provider in providers {
-            anyGranted = (try? await provider.requestAccess()) == true || anyGranted
             provider.observeChanges { [weak self] in self?.refreshSoon() }
         }
-        accessDenied = !anyGranted
+        await updateAccess()
 
         // The heartbeat and wake refresh catch alerts a timer missed while the Mac slept.
         heartbeat = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
@@ -51,34 +51,54 @@ final class AppCoordinator {
 
     func refresh() async {
         let now = Date()
-        excludedCalendarIDs = Set(UserDefaults.standard.stringArray(forKey: SettingsKey.excludedCalendarIDs) ?? [])
+        selection = Self.loadSelection()
+        await updateAccess()
         var fetchedCalendars: [CalendarInfo] = []
         var fetched: [Meeting] = []
-        for provider in providers {
-            fetchedCalendars += (try? await provider.calendars()) ?? []
-            fetched += (try? await provider.meetings(from: now - Self.lookBehind, to: now + Self.lookAhead)) ?? []
+        // Providers are listed richest first, so the copy MeetingMerger keeps comes from the better source.
+        for provider in providers where providersWithAccess.contains(provider.id) {
+            let providerCalendars = (try? await provider.calendars()) ?? []
+            fetchedCalendars += providerCalendars
+            let enabled = providerCalendars.filter(selection.isEnabled)
+            fetched += (try? await provider.meetings(from: now - Self.lookBehind, to: now + Self.lookAhead, in: enabled)) ?? []
         }
         calendars = fetchedCalendars.sorted { ($0.account, $0.title) < ($1.account, $1.title) }
-        meetings = fetched
-            .filter { !excludedCalendarIDs.contains($0.calendarID) }
-            .sorted { $0.start < $1.start }
+        meetings = MeetingMerger.deduplicated(fetched).sorted { $0.start < $1.start }
         upcoming = meetings.filter { $0.end > now && !$0.isAllDay }
         planner.settings = .load()
         planner.retainState(for: meetings)
         evaluate()
     }
 
+    var hasCalendarAccess: Bool {
+        !providersWithAccess.isEmpty
+    }
+
     func isEnabled(_ calendar: CalendarInfo) -> Bool {
-        !excludedCalendarIDs.contains(calendar.id)
+        selection.isEnabled(calendar)
     }
 
     func setEnabled(_ calendar: CalendarInfo, _ enabled: Bool) {
-        if enabled {
-            excludedCalendarIDs.remove(calendar.id)
-        } else {
-            excludedCalendarIDs.insert(calendar.id)
+        selection.set(calendar, enabled: enabled)
+        UserDefaults.standard.set(selection.choices, forKey: SettingsKey.calendarChoices)
+    }
+
+    private func updateAccess() async {
+        var granted: Set<String> = []
+        for provider in providers where (try? await provider.requestAccess()) == true {
+            granted.insert(provider.id)
         }
-        UserDefaults.standard.set(excludedCalendarIDs.sorted(), forKey: SettingsKey.excludedCalendarIDs)
+        providersWithAccess = granted
+    }
+
+    private static func loadSelection() -> CalendarSelection {
+        let defaults = UserDefaults.standard
+        if let legacy = defaults.stringArray(forKey: SettingsKey.legacyExcludedCalendarIDs) {
+            let choices = Dictionary(legacy.map { ($0, false) }, uniquingKeysWith: { first, _ in first })
+            defaults.set(choices, forKey: SettingsKey.calendarChoices)
+            defaults.removeObject(forKey: SettingsKey.legacyExcludedCalendarIDs)
+        }
+        return CalendarSelection(choices: defaults.dictionary(forKey: SettingsKey.calendarChoices) as? [String: Bool] ?? [:])
     }
 
     func join(_ meeting: Meeting) {

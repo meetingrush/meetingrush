@@ -23,9 +23,10 @@ struct MenuContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if coordinator.accessDenied {
-                Button("Grant calendar access…") {
-                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars")!)
+            if !coordinator.hasCalendarAccess {
+                Button("Set up calendars…") {
+                    close()
+                    openSettings()
                 }
                 .padding(12)
                 Divider()

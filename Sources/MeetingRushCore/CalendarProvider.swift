@@ -12,8 +12,8 @@ public protocol CalendarProvider: AnyObject {
     /// The calendars this source can read.
     func calendars() async throws -> [CalendarInfo]
 
-    /// Meetings overlapping `start..<end`, excluding ones that were cancelled or that the user declined.
-    func meetings(from start: Date, to end: Date) async throws -> [Meeting]
+    /// Meetings in `calendars` overlapping `start..<end`, excluding ones that were cancelled or that the user declined.
+    func meetings(from start: Date, to end: Date, in calendars: [CalendarInfo]) async throws -> [Meeting]
 
     /// Registers a handler to call whenever this source's events may have changed.
     func observeChanges(_ handler: @escaping @MainActor () -> Void)

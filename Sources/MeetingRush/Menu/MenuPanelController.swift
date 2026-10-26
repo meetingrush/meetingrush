@@ -21,7 +21,7 @@ final class MenuPanelController: NSObject {
         super.init()
 
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "calendar.badge.clock", accessibilityDescription: "MeetingRush")
+            button.image = AppImages.logo
             button.target = self
             button.action = #selector(toggle)
         }

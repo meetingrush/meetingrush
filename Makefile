@@ -5,7 +5,7 @@ export BUNDLE_ID CODESIGN_IDENTITY SWIFT_BUILD_FLAGS
 APP := dist/MeetingRush.app
 INSTALL_DIR ?= $(HOME)/Applications
 
-.PHONY: app run install test clean
+.PHONY: app run install test clean icons
 
 app:
 	scripts/bundle.sh
@@ -21,6 +21,11 @@ install: app
 
 test:
 	swift test
+
+# Regenerates the committed icon files from their SVG sources; needs librsvg (brew install librsvg).
+icons:
+	rsvg-convert -f pdf Resources/Icons/MenuBarIcon.svg -o Resources/Icons/MenuBarIcon.pdf
+	scripts/make-app-icon.sh
 
 clean:
 	rm -rf .build dist

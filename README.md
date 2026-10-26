@@ -58,6 +58,7 @@ after each rebuild. A self-signed certificate keeps the signature stable:
 | `Sources/MeetingRushCore` | Calendar-agnostic logic: the `Meeting` model, the `CalendarProvider` protocol, link detection, alert planning |
 | `Sources/MeetingRush` | The app: menu bar, full-screen overlay, settings, and the EventKit provider |
 | `Tests/MeetingRushCoreTests` | Swift Testing tests for the core |
+| `Resources/Icons` | Menu bar and app icons: SVG sources plus the generated PDF and `.icns`; `make icons` regenerates them |
 | `scripts/bundle.sh` | Builds and signs the `.app` bundle |
 | `packaging/homebrew` | Formula template for a Homebrew tap |
 

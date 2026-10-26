@@ -18,6 +18,7 @@ BIN_DIR="$(swift build -c release --show-bin-path ${BUILD_FLAGS[@]+"${BUILD_FLAG
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
+cp Resources/Icons/*.pdf Resources/Icons/AppIcon.icns "$APP/Contents/Resources/"
 sed -e "s/__VERSION__/$VERSION/g" -e "s/__BUNDLE_ID__/$BUNDLE_ID/g" Resources/Info.plist > "$APP/Contents/Info.plist"
 
 codesign --force --sign "$CODESIGN_IDENTITY" --identifier "$BUNDLE_ID" "$APP"

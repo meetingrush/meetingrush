@@ -1,9 +1,14 @@
+import AppKit
 import MeetingRushCore
 import SwiftUI
 
 struct OverlayView: View {
     let meeting: Meeting
     let actions: OverlayActions
+
+    private static let titleSize: CGFloat = 56
+    /// Sizes the logo to the title's capital letters.
+    private static let titleCapHeight = NSFont.systemFont(ofSize: titleSize, weight: .bold).capHeight
 
     var body: some View {
         ZStack {
@@ -18,10 +23,18 @@ struct OverlayView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Text(meeting.title)
-                    .font(.system(size: 56, weight: .bold))
-                    .multilineTextAlignment(.center)
-                    .lineLimit(3)
+                HStack(alignment: .firstTextBaseline, spacing: 18) {
+                    Image(nsImage: AppImages.logo)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: Self.titleCapHeight)
+                        .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
+                    Text(meeting.title)
+                        .font(.system(size: Self.titleSize, weight: .bold))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(3)
+                }
 
                 Text(details)
                     .font(.title3)

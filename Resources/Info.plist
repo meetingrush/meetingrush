@@ -23,6 +23,6 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSCalendarsFullAccessUsageDescription</key>
-    <string>MeetingRush reads your calendar events to alert you before meetings start and to find their join links.</string>
+    <string>MeetingRush only reads your calendar events, to alert you before meetings start and find their join links. It never adds, changes or deletes anything.</string>
 </dict>
 </plist>

@@ -13,8 +13,7 @@ struct GoogleCalendarSettings: View {
             } header: {
                 Text("OAuth client")
             } footer: {
-                Text("Use a Desktop app OAuth client from your own Google Cloud project. [Setup guide](https://github.com/meetingrush/meetingrush#google-calendar)")
-                    .foregroundStyle(.secondary)
+                SectionNote("Use a Desktop app OAuth client from your own Google Cloud project. [Setup guide](https://github.com/meetingrush/meetingrush#google-calendar)")
             }
 
             Section("Accounts") {

@@ -23,8 +23,7 @@ struct AppleCalendarSettings: View {
                     Text(account)
                 } footer: {
                     if account == accounts.last {
-                        Text("Unticked calendars don't alert or appear in the menu. If an account is also connected in Google Calendar, each meeting still alerts once.")
-                            .foregroundStyle(.secondary)
+                        SectionNote("Unticked calendars don't alert or appear in the menu. If an account is also connected in Google Calendar, each meeting still alerts once.")
                     }
                 }
             }

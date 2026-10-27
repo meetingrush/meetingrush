@@ -62,6 +62,8 @@ struct MenuContent: View {
             .padding(8)
         }
         .frame(width: 360)
+        // Menus don't draw focus rings; without this the first button gets one each time the panel opens.
+        .focusEffectDisabled()
     }
 
     private var agenda: some View {

@@ -18,7 +18,9 @@ final class OverlayController {
         hide()
         let screens = NSScreen.screens.sorted { lhs, _ in lhs == NSScreen.main }
         panels = screens.map { screen in
-            let panel = OverlayPanel(contentRect: screen.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+            // Non-activating, so the alert takes keyboard focus even when macOS declines to activate the app,
+            // which it does while the user is working in another app.
+            let panel = OverlayPanel(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
             panel.level = .screenSaver
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
             panel.isOpaque = false
@@ -32,7 +34,6 @@ final class OverlayController {
             panel.orderFrontRegardless()
             return panel
         }
-        NSApp.activate()
         panels.first?.makeKeyAndOrderFront(nil)
     }
 

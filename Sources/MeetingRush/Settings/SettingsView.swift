@@ -179,6 +179,23 @@ private struct SettingsSubpage<Content: View>: View {
     }
 }
 
+/// A section footer note. Grouped forms align footers to the trailing edge, which leaves the last line of a
+/// wrapped note hanging on the right.
+struct SectionNote: View {
+    let text: LocalizedStringKey
+
+    init(_ text: LocalizedStringKey) {
+        self.text = text
+    }
+
+    var body: some View {
+        Text(text)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 /// Checkboxes for choosing which of `calendars` alert.
 struct CalendarChecklist: View {
     let calendars: [CalendarInfo]

@@ -14,7 +14,7 @@ Requires macOS 14 or later.
 brew install --cask meetingrush/tap/meetingrush
 ```
 
-The app installs into `/Applications` and requires an Apple silicon Mac.
+The app installs into `/Applications` and runs on Apple silicon and Intel Macs with macOS 14 or later.
 
 ## Google Calendar
 
@@ -51,7 +51,7 @@ make test
 ```
 
 The app target avoids SwiftUI macros (`@State`, `@Entry`, `@Previewable`) for the same reason: their plugin is missing from the
-Command Line Tools, so a Homebrew build would fail. Use `@Observable` models and `@AppStorage` instead.
+Command Line Tools, which would stop the app building without Xcode. Use `@Observable` models and `@AppStorage` instead.
 
 ## Troubleshooting
 

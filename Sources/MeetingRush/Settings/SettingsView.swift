@@ -5,7 +5,7 @@ import ServiceManagement
 import SwiftUI
 
 // No @State, @Entry or @Previewable in this target: they are macros whose plugin the Command Line Tools lack,
-// so a Homebrew build from source would fail. @Observable models and @AppStorage are fine.
+// so the app would no longer build without Xcode. @Observable models and @AppStorage are fine.
 
 /// Which Settings page is showing; nil is the main page.
 @MainActor

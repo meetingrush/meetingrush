@@ -1,9 +1,16 @@
 # Releasing MeetingRush
 
 MeetingRush ships as a Homebrew cask. Pushing a `vX.Y.Z` tag runs [the release workflow](../.github/workflows/release.yml),
-which tests, builds, signs and zips `MeetingRush.app` and publishes it as a GitHub Release. The cask in
+which tests the tagged commit, builds a universal (Apple silicon and Intel) `MeetingRush.app`, signs and zips it, records
+a build provenance attestation and publishes the zip as a GitHub Release. The cask in
 [meetingrush/homebrew-tap](https://github.com/meetingrush/homebrew-tap) points at that zip, and Homebrew installs the app
 into `/Applications`.
+
+Only reviewed code gets signed:
+
+- The signing secrets live in the repository's `release` environment, whose deployment rule only admits `v*` tags.
+- The **Release tags** ruleset lets only organisation admins create, move or delete `v*` tags.
+- The workflow refuses a tag whose commit isn't already on `main`, or that doesn't match `VERSION`.
 
 Until the project has a paid Apple Developer ID, releases are signed with a free Apple Development certificate. It keeps
 the app's signature the same from one release to the next, so macOS keeps its calendar and keychain permissions across
@@ -17,7 +24,7 @@ installing, until releases are notarised.
 1. In Xcode, open **Settings → Accounts**, click **+**, and sign in with your Apple ID. A free account shows up as
    **Your Name (Personal Team)**.
 2. Select the Personal Team, click **Manage Certificates…**, then **+ → Apple Development**.
-3. Note the certificate's full name, which the workflow signs with:
+3. Note the certificate's full name, for signing local builds:
 
    ```sh
    security find-identity -v -p codesigning
@@ -28,20 +35,19 @@ installing, until releases are notarised.
 
 1. In Keychain Access, open the **login** keychain, **My Certificates**, and find **Apple Development: Your Name**.
    Right-click it, choose **Export…**, save it as `AppleDevelopment.p12`, and set a strong password.
-2. Add three repository secrets:
+2. Add both secrets to the `release` environment, not to the repository:
 
    ```sh
-   base64 -i AppleDevelopment.p12 | gh secret set MACOS_CERTIFICATE_P12 --repo meetingrush/meetingrush
-   gh secret set MACOS_CERTIFICATE_PASSWORD --repo meetingrush/meetingrush   # prompts for the export password
-   gh secret set MACOS_CODESIGN_IDENTITY --repo meetingrush/meetingrush --body "Apple Development: Your Name (XXXXXXXXXX)"
+   base64 -i AppleDevelopment.p12 | gh secret set MACOS_CERTIFICATE_P12 --env release --repo meetingrush/meetingrush
+   gh secret set MACOS_CERTIFICATE_PASSWORD --env release --repo meetingrush/meetingrush   # prompts for the password
    ```
 
+   The workflow signs with the one identity in the certificate, so there's no identity to keep in step with it. It fails
+   if the certificate is missing or holds more than one identity, rather than falling back to ad-hoc signing.
 3. Delete `AppleDevelopment.p12`.
 
 Apple Development certificates expire after a year. When it does, create a new one and repeat this step; the next
 release asks for calendar access once more.
-
-Without these secrets the workflow still runs, signing ad-hoc, and every upgrade asks for calendar access again.
 
 ### 3. Optional: sign local builds the same way
 
@@ -50,6 +56,13 @@ worktree:
 
 ```make
 CODESIGN_IDENTITY := Apple Development: Your Name (XXXXXXXXXX)
+```
+
+Local builds stay native-only, without the hardened runtime, so they build offline and debuggers can attach. To check a
+release build locally, which needs a network connection for the signing timestamp:
+
+```sh
+RELEASE=1 make app
 ```
 
 ## Releasing a version
@@ -65,7 +78,8 @@ CODESIGN_IDENTITY := Apple Development: Your Name (XXXXXXXXXX)
    ```
 
 3. Follow the workflow with `gh run watch --repo meetingrush/meetingrush`. The run fails straight away if the tag
-   doesn't match `VERSION`. When it finishes, the run's summary shows the `version` and `sha256` for the cask.
+   doesn't match `VERSION` or isn't on `main`. When it finishes, the run's summary shows the `version` and `sha256` for
+   the cask.
 4. In a `homebrew-tap` worktree, update `version` and `sha256` in `Casks/meetingrush.rb`, check it, and open a pull
    request:
 
@@ -75,6 +89,16 @@ CODESIGN_IDENTITY := Apple Development: Your Name (XXXXXXXXXX)
    ```
 
 5. Once it's merged, `brew upgrade --cask meetingrush` installs the new version.
+
+To check that a downloaded release was built by this workflow from this repository:
+
+```sh
+gh release download vX.Y.Z --repo meetingrush/meetingrush --pattern 'MeetingRush-*.zip'
+gh attestation verify MeetingRush-X.Y.Z.zip --repo meetingrush/meetingrush
+```
+
+Until releases are notarised, this and the cask's `sha256` are the only checks on the download, because the cask removes
+the quarantine flag that would make Gatekeeper check it.
 
 ## Moving a Mac from the formula to the cask
 
@@ -105,15 +129,15 @@ mdimport /Applications/MeetingRush.app
 Once you join the Apple Developer Program:
 
 1. In Xcode, **Manage Certificates… → + → Developer ID Application**. Export it as in setup step 2, and replace the
-   `MACOS_CERTIFICATE_P12`, `MACOS_CERTIFICATE_PASSWORD` and `MACOS_CODESIGN_IDENTITY` secrets with it.
+   `MACOS_CERTIFICATE_P12` and `MACOS_CERTIFICATE_PASSWORD` secrets in the `release` environment with it.
 2. In App Store Connect, open **Users and Access → Integrations → App Store Connect API**, and generate a key with the
    **Developer** role. Download the `.p8` file (it can only be downloaded once) and note the key ID and issuer ID.
 3. Add the notarisation secrets:
 
    ```sh
-   gh secret set NOTARY_KEY_P8 --repo meetingrush/meetingrush < AuthKey_XXXXXXXXXX.p8
-   gh secret set NOTARY_KEY_ID --repo meetingrush/meetingrush --body XXXXXXXXXX
-   gh secret set NOTARY_ISSUER_ID --repo meetingrush/meetingrush --body 00000000-0000-0000-0000-000000000000
+   gh secret set NOTARY_KEY_P8 --env release --repo meetingrush/meetingrush < AuthKey_XXXXXXXXXX.p8
+   gh secret set NOTARY_KEY_ID --env release --repo meetingrush/meetingrush --body XXXXXXXXXX
+   gh secret set NOTARY_ISSUER_ID --env release --repo meetingrush/meetingrush --body 00000000-0000-0000-0000-000000000000
    ```
 
 4. Release as usual. The workflow notarises and staples the app when these secrets exist.
@@ -123,11 +147,11 @@ The first Developer ID release asks for calendar access once more, because the c
 
 ## Troubleshooting
 
-- **The build step fails with `errSecInternalComponent` or "unable to build chain":** the runner is missing Apple's
-  intermediate certificate. Download **Apple Worldwide Developer Relations G3** from
-  [Apple's certificate authority page](https://www.apple.com/certificateauthority/) and import it in the
-  "Import the signing certificate" step.
-- **The app never asks for calendar access, or shows no meetings:** check the signature still carries the calendar
+- **"Expected one signing identity in the certificate, found: none":** the certificate didn't validate. Check it hasn't
+  expired, and that the export included the private key (export from **My Certificates**, not **Certificates**).
+- **"Tag vX.Y.Z points at … which isn't on main":** the tag was made on a branch. Delete it, then tag the merge commit
+  on `main`.
+- **The app never asks for calendar access, or shows no meetings:** check the signature carries the calendar
   entitlement, which the hardened runtime requires:
 
   ```sh

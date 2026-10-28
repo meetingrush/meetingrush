@@ -1,10 +1,8 @@
 # Releasing MeetingRush
 
-MeetingRush ships as a Homebrew cask. Pushing a `vX.Y.Z` tag runs [the release workflow](../.github/workflows/release.yml),
-which tests the tagged commit, builds a universal (Apple silicon and Intel) `MeetingRush.app`, signs and zips it, records
-a build provenance attestation and publishes the zip as a GitHub Release. The cask in
-[meetingrush/homebrew-tap](https://github.com/meetingrush/homebrew-tap) points at that zip, and Homebrew installs the app
-into `/Applications`.
+MeetingRush ships as a Homebrew cask.
+Pushing a `vX.Y.Z` tag runs [the release workflow](../.github/workflows/release.yml), which tests the tagged commit, builds a universal (Apple silicon and Intel) `MeetingRush.app`, signs and zips it, records a build provenance attestation and publishes the zip as a GitHub Release.
+The cask in [meetingrush/homebrew-tap](https://github.com/meetingrush/homebrew-tap) points at that zip, and Homebrew installs the app into `/Applications`.
 
 Only reviewed code gets signed:
 
@@ -12,17 +10,16 @@ Only reviewed code gets signed:
 - The **Release tags** ruleset lets only organisation admins create, move or delete `v*` tags.
 - The workflow refuses a tag whose commit isn't already on `main`, or that doesn't match `VERSION`.
 
-Until the project has a paid Apple Developer ID, releases are signed with a free Apple Development certificate. It keeps
-the app's signature the same from one release to the next, so macOS keeps its calendar and keychain permissions across
-upgrades, but Gatekeeper doesn't accept it for downloaded apps. The cask therefore removes the quarantine flag after
-installing, until releases are notarised.
+Until the project has a paid Apple Developer ID, releases are signed with a free Apple Development certificate.
+It keeps the app's signature the same from one release to the next, so macOS keeps its calendar and keychain permissions across upgrades, but Gatekeeper doesn't accept it for downloaded apps.
+The cask therefore removes the quarantine flag after installing, until releases are notarised.
 
 ## One-time setup
 
 ### 1. Create the signing certificate
 
-1. In Xcode, open **Settings → Accounts**, click **+**, and sign in with your Apple ID. A free account shows up as
-   **Your Name (Personal Team)**.
+1. In Xcode, open **Settings → Accounts**, click **+**, and sign in with your Apple ID.
+   A free account shows up as **Your Name (Personal Team)**.
 2. Select the Personal Team, click **Manage Certificates…**, then **+ → Apple Development**.
 3. Note the certificate's full name, for signing local builds:
 
@@ -42,24 +39,23 @@ installing, until releases are notarised.
    gh secret set MACOS_CERTIFICATE_PASSWORD --env release --repo meetingrush/meetingrush   # prompts for the password
    ```
 
-   The workflow signs with the one identity in the certificate, so there's no identity to keep in step with it. It fails
-   if the certificate is missing or holds more than one identity, rather than falling back to ad-hoc signing.
+   The workflow signs with the one identity in the certificate, so there's no identity to keep in step with it.
+   It fails if the certificate is missing or holds more than one identity, rather than falling back to ad-hoc signing.
 3. Delete `AppleDevelopment.p12`.
 
-Apple Development certificates expire after a year. When it does, create a new one and repeat this step; the next
-release asks for calendar access once more.
+Apple Development certificates expire after a year.
+When it does, create a new one and repeat this step; the next release asks for calendar access once more.
 
 ### 3. Optional: sign local builds the same way
 
-To stop macOS asking for calendar access after every local rebuild, add the identity to an untracked `local.mk` in each
-worktree:
+To stop macOS asking for calendar access after every local rebuild, add the identity to an untracked `local.mk` in each worktree:
 
 ```make
 CODESIGN_IDENTITY := Apple Development: Your Name (XXXXXXXXXX)
 ```
 
-Local builds stay native-only, without the hardened runtime, so they build offline and debuggers can attach. To check a
-release build locally, which needs a network connection for the signing timestamp:
+Local builds stay native-only, without the hardened runtime, so they build offline and debuggers can attach.
+To check a release build locally, which needs a network connection for the signing timestamp:
 
 ```sh
 RELEASE=1 make app
@@ -77,11 +73,11 @@ RELEASE=1 make app
    git push origin vX.Y.Z
    ```
 
-3. Follow the workflow with `gh run watch --repo meetingrush/meetingrush`. The run fails straight away if the tag
-   doesn't match `VERSION` or isn't on `main`. When it finishes, the run's summary shows the `version` and `sha256` for
-   the cask.
-4. In a `homebrew-tap` worktree, update `version` and `sha256` in `Casks/meetingrush.rb`, check it, and open a pull
-   request:
+3. Follow the workflow with `gh run watch --repo meetingrush/meetingrush`.
+   The run fails straight away if the tag doesn't match `VERSION` or isn't on `main`.
+   When it finishes, the run's summary shows the `version` and `sha256` for the cask.
+4. In a `homebrew-tap` worktree, update `version` and `sha256` in `Casks/meetingrush.rb`, check it, and open a pull request.
+   The cask also pins the signing team ID, which only changes with the certificate; read it from a release with `codesign -dv MeetingRush.app 2>&1 | grep TeamIdentifier`.
 
    ```sh
    brew style Casks/meetingrush.rb
@@ -97,8 +93,7 @@ gh release download vX.Y.Z --repo meetingrush/meetingrush --pattern 'MeetingRush
 gh attestation verify MeetingRush-X.Y.Z.zip --repo meetingrush/meetingrush
 ```
 
-Until releases are notarised, this and the cask's `sha256` are the only checks on the download, because the cask removes
-the quarantine flag that would make Gatekeeper check it.
+Until releases are notarised, this and the cask's `sha256` are the only checks on the download, because the cask removes the quarantine flag that would make Gatekeeper check it.
 
 ## Moving a Mac from the formula to the cask
 
@@ -113,7 +108,10 @@ brew install --cask meetingrush/tap/meetingrush
 open /Applications/MeetingRush.app
 ```
 
-macOS asks for calendar access once more, because the signature has changed.
+macOS asks for calendar access once more, because the signature has changed, and for keychain access if Google Calendar is connected.
+Launch at login still points at the old install, so turn it off and on again in Settings.
+
+Asking Homebrew for the old formula now says it was migrated to a cask, through the tap's `tap_migrations.json`.
 
 If Spotlight still offers the old build, re-register the new app and drop the old record:
 
@@ -128,10 +126,10 @@ mdimport /Applications/MeetingRush.app
 
 Once you join the Apple Developer Program:
 
-1. In Xcode, **Manage Certificates… → + → Developer ID Application**. Export it as in setup step 2, and replace the
-   `MACOS_CERTIFICATE_P12` and `MACOS_CERTIFICATE_PASSWORD` secrets in the `release` environment with it.
-2. In App Store Connect, open **Users and Access → Integrations → App Store Connect API**, and generate a key with the
-   **Developer** role. Download the `.p8` file (it can only be downloaded once) and note the key ID and issuer ID.
+1. In Xcode, **Manage Certificates… → + → Developer ID Application**.
+   Export it as in setup step 2, and replace the `MACOS_CERTIFICATE_P12` and `MACOS_CERTIFICATE_PASSWORD` secrets in the `release` environment with it.
+2. In App Store Connect, open **Users and Access → Integrations → App Store Connect API**, and generate a key with the **Developer** role.
+   Download the `.p8` file (it can only be downloaded once) and note the key ID and issuer ID.
 3. Add the notarisation secrets:
 
    ```sh
@@ -140,19 +138,20 @@ Once you join the Apple Developer Program:
    gh secret set NOTARY_ISSUER_ID --env release --repo meetingrush/meetingrush --body 00000000-0000-0000-0000-000000000000
    ```
 
-4. Release as usual. The workflow notarises and staples the app when these secrets exist.
-5. In the tap, remove the cask's `postflight` block that strips the quarantine flag.
+4. Release as usual.
+   The workflow notarises and staples the app when these secrets exist.
+5. In the tap, remove the cask's `postflight_steps`, which check the signing team and strip the quarantine flag.
+   If you keep them for a while, update the team ID they check: a paid team has a different ID from the Personal Team.
 
 The first Developer ID release asks for calendar access once more, because the certificate has changed.
 
 ## Troubleshooting
 
-- **"Expected one signing identity in the certificate, found: none":** the certificate didn't validate. Check it hasn't
-  expired, and that the export included the private key (export from **My Certificates**, not **Certificates**).
-- **"Tag vX.Y.Z points at … which isn't on main":** the tag was made on a branch. Delete it, then tag the merge commit
-  on `main`.
-- **The app never asks for calendar access, or shows no meetings:** check the signature carries the calendar
-  entitlement, which the hardened runtime requires:
+- **"Expected one signing identity in the certificate, found: none":** the certificate didn't validate.
+  Check it hasn't expired, and that the export included the private key (export from **My Certificates**, not **Certificates**).
+- **"Tag vX.Y.Z points at … which isn't on main":** the tag was made on a branch.
+  Delete it, then tag the merge commit on `main`.
+- **The app never asks for calendar access, or shows no meetings:** check the signature carries the calendar entitlement, which the hardened runtime requires:
 
   ```sh
   codesign -d --entitlements - /Applications/MeetingRush.app

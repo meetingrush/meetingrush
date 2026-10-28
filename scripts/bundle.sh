@@ -14,11 +14,12 @@ APP="dist/${APP_NAME}.app"
 BUILD_FLAGS=(-c release)
 SIGN_FLAGS=(--force --sign "$CODESIGN_IDENTITY" --identifier "$BUNDLE_ID")
 if [[ "${RELEASE:-}" == "1" ]]; then
-    # Releases run on Intel too, and notarisation needs the hardened runtime and a secure timestamp. Under the
-    # hardened runtime, calendar access needs its entitlement. Dev builds skip all of this so they build offline
-    # and debuggers can attach.
+    # Notarisation needs the hardened runtime and a timestamp; the runtime needs the calendar entitlement.
     BUILD_FLAGS+=(--arch arm64 --arch x86_64)
     SIGN_FLAGS+=(--options runtime --entitlements Resources/MeetingRush.entitlements --timestamp)
+else
+    # Keeps dev builds offline and debuggable, even when signed with a real identity.
+    SIGN_FLAGS+=(--timestamp=none)
 fi
 
 swift build "${BUILD_FLAGS[@]}"

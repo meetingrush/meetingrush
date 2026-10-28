@@ -65,15 +65,14 @@ log show --last 4h --predicate 'subsystem == "dev.meetingrush.MeetingRush"' --st
 
 `make` signs ad-hoc by default.
 An ad-hoc signature changes with every build, so macOS may ask for calendar access again after each rebuild.
-A self-signed certificate keeps the signature stable:
+Signing with the same Apple Development identity that releases use keeps the signature stable.
+Create it as in [setup step 1](docs/RELEASING.md#1-create-the-signing-certificate), then add it to an untracked `local.mk`:
 
-1. Keychain Access → Certificate Assistant → Create a Certificate…
-2. Name it `MeetingRush Dev`, Identity Type **Self Signed Root**, Certificate Type **Code Signing**.
-3. Create an untracked `local.mk`:
+```make
+CODESIGN_IDENTITY := Apple Development: Your Name (XXXXXXXXXX)
+```
 
-   ```make
-   CODESIGN_IDENTITY := MeetingRush Dev
-   ```
+Dev builds still skip the hardened runtime and the signing timestamp, so they build offline and debuggers can attach.
 
 `local.mk` can also override `BUNDLE_ID`.
 Changing it resets the calendar permission and settings.

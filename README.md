@@ -11,8 +11,10 @@ Requires macOS 14 or later.
 ## Install
 
 ```sh
-brew install meetingrush/tap/meetingrush
+brew install --cask meetingrush/tap/meetingrush
 ```
+
+The app installs into `/Applications` and requires an Apple silicon Mac.
 
 ## Google Calendar
 
@@ -83,14 +85,14 @@ after each rebuild. A self-signed certificate keeps the signature stable:
 | `Tests/MeetingRushCoreTests` | Swift Testing tests for the core |
 | `Resources/Icons` | Menu bar and app icons: SVG sources plus the generated PDF and `.icns`; `make icons` regenerates them |
 | `scripts/bundle.sh` | Builds and signs the `.app` bundle |
-| `packaging/homebrew` | Formula template for a Homebrew tap |
+| `.github/workflows/release.yml` | Builds, signs and publishes the release zip the cask installs |
 
 New calendar sources implement `CalendarProvider` and are added to the list passed to `AppCoordinator` in `MeetingRushApp.swift`.
 
-## Homebrew
+## Releasing
 
-`packaging/homebrew/meetingrush.rb` builds from source, so Gatekeeper never quarantines the result and no Developer ID is needed.
-Copy it into a tap repository and fill in the release URL, checksum and licence.
+Releases are built by GitHub Actions and installed through the cask in
+[meetingrush/homebrew-tap](https://github.com/meetingrush/homebrew-tap). See [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Licence
 

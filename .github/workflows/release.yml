@@ -1,0 +1,86 @@
+name: Release
+
+# Builds, signs and publishes MeetingRush.app for the Homebrew cask whenever a version tag is pushed.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    env:
+      TAG: ${{ github.ref_name }}
+      # Step conditions can't read secrets, only this flag derived from one.
+      HAS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE_P12 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches VERSION
+        run: |
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          if [[ "$TAG" != "v$VERSION" ]]; then
+            echo "Tag $TAG doesn't match VERSION $VERSION" >&2
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: swift test
+
+      - name: Import the signing certificate
+        if: env.HAS_CERTIFICATE == 'true'
+        env:
+          CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/certificate.p12"
+
+      - name: Build
+        env:
+          # Ad-hoc signing when no certificate is configured.
+          CODESIGN_IDENTITY: ${{ secrets.MACOS_CODESIGN_IDENTITY || '-' }}
+        run: make app
+
+      - name: Notarise and package
+        env:
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        run: |
+          if [[ -n "$NOTARY_KEY_P8" ]]; then
+            export NOTARY_KEY_PATH="$RUNNER_TEMP/notary.p8"
+            echo "$NOTARY_KEY_P8" > "$NOTARY_KEY_PATH"
+          fi
+          SHA256="$(scripts/package-release.sh | tail -1)"
+          echo "SHA256=$SHA256" >> "$GITHUB_ENV"
+
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" "dist/MeetingRush-$VERSION.zip" \
+            --title "MeetingRush $VERSION" --generate-notes
+          {
+            echo "### Cask values"
+            echo
+            echo '```ruby'
+            echo "version \"$VERSION\""
+            echo "sha256 \"$SHA256\""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true

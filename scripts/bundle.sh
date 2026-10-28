@@ -21,5 +21,10 @@ cp "$BIN_DIR/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
 cp Resources/Icons/*.pdf Resources/Icons/AppIcon.icns "$APP/Contents/Resources/"
 sed -e "s/__VERSION__/$VERSION/g" -e "s/__BUNDLE_ID__/$BUNDLE_ID/g" Resources/Info.plist > "$APP/Contents/Info.plist"
 
-codesign --force --sign "$CODESIGN_IDENTITY" --identifier "$BUNDLE_ID" "$APP"
+# The hardened runtime is required for notarisation, and under it calendar access needs its entitlement.
+SIGN_FLAGS=(--force --sign "$CODESIGN_IDENTITY" --identifier "$BUNDLE_ID" --options runtime --entitlements Resources/MeetingRush.entitlements)
+if [[ "$CODESIGN_IDENTITY" != "-" ]]; then
+    SIGN_FLAGS+=(--timestamp)
+fi
+codesign "${SIGN_FLAGS[@]}" "$APP"
 echo "Built $APP $VERSION (signing identity: $CODESIGN_IDENTITY)"

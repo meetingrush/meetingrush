@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Zips dist/MeetingRush.app into dist/MeetingRush-<version>.zip for a GitHub Release and prints its SHA-256.
-# Notarises first when NOTARY_KEY_PATH, NOTARY_KEY_ID and NOTARY_ISSUER_ID are all set, and fails if only some are.
+# Notarises when NOTARY_KEY_PATH, NOTARY_KEY_ID and NOTARY_ISSUER_ID are all set; fails if only some are set,
+# or if none are and the app is signed with a Developer ID, which is only worth shipping notarised.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -17,6 +18,10 @@ for name in NOTARY_KEY_PATH NOTARY_KEY_ID NOTARY_ISSUER_ID; do
 done
 if (( ${#MISSING[@]} > 0 && ${#MISSING[@]} < 3 )); then
     echo "Notarisation is partly configured; missing ${MISSING[*]}" >&2
+    exit 1
+fi
+if (( ${#MISSING[@]} == 3 )) && codesign -dv --verbose=2 "$APP" 2>&1 | grep -q '^Authority=Developer ID Application:'; then
+    echo "The app is signed with a Developer ID but the NOTARY_* secrets are missing" >&2
     exit 1
 fi
 

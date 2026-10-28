@@ -111,8 +111,6 @@ open /Applications/MeetingRush.app
 macOS asks for calendar access once more, because the signature has changed, and for keychain access if Google Calendar is connected.
 Launch at login still points at the old install, so turn it off and on again in Settings.
 
-Asking Homebrew for the old formula now says it was migrated to a cask, through the tap's `tap_migrations.json`.
-
 If Spotlight still offers the old build, re-register the new app and drop the old record:
 
 ```sh
@@ -140,6 +138,7 @@ Once you join the Apple Developer Program:
 
 4. Release as usual.
    The workflow notarises and staples the app when these secrets exist.
+   A Developer ID release without them fails instead of shipping un-notarised.
 5. In the tap, remove the cask's `postflight_steps`, which check the signing team and strip the quarantine flag.
    If you keep them for a while, update the team ID they check: a paid team has a different ID from the Personal Team.
 

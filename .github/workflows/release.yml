@@ -21,10 +21,16 @@ jobs:
       contents: read
     env:
       TAG: ${{ github.ref_name }}
-      KEYCHAIN: ${{ runner.temp }}/signing.keychain-db
-      CERTIFICATE_PATH: ${{ runner.temp }}/certificate.p12
-      NOTARY_KEY_PATH: ${{ runner.temp }}/notary.p8
     steps:
+      # The runner context isn't available in a job's env, so the scratch paths are set here.
+      - name: Set paths
+        run: |
+          {
+            echo "KEYCHAIN=$RUNNER_TEMP/signing.keychain-db"
+            echo "CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12"
+            echo "NOTARY_KEY_PATH=$RUNNER_TEMP/notary.p8"
+          } >> "$GITHUB_ENV"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -105,7 +111,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release
-          path: dist/MeetingRush-${{ env.VERSION }}.zip
+          path: dist/MeetingRush-*.zip
           if-no-files-found: error
 
       - name: Summarise the cask values

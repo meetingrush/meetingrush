@@ -1,6 +1,6 @@
 # Optional, untracked overrides such as CODESIGN_IDENTITY.
 -include local.mk
-export BUNDLE_ID CODESIGN_IDENTITY SWIFT_BUILD_FLAGS
+export BUNDLE_ID CODESIGN_IDENTITY RELEASE
 
 APP := dist/MeetingRush.app
 INSTALL_DIR ?= $(HOME)/Applications

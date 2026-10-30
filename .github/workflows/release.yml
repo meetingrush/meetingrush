@@ -1,0 +1,153 @@
+name: Release
+
+# Builds, signs and publishes MeetingRush.app for the Homebrew cask when a version tag is pushed.
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+defaults:
+  run:
+    # Adds -o pipefail, so a failing command in a pipeline fails its step.
+    shell: bash
+
+jobs:
+  build:
+    runs-on: macos-15
+    # Holds the signing secrets; its deployment rule only admits v* tags.
+    environment: release
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ github.ref_name }}
+      KEYCHAIN: ${{ runner.temp }}/signing.keychain-db
+      CERTIFICATE_PATH: ${{ runner.temp }}/certificate.p12
+      NOTARY_KEY_PATH: ${{ runner.temp }}/notary.p8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check the tag
+        run: |
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          if [[ "$TAG" != "v$VERSION" ]]; then
+            echo "Tag $TAG doesn't match VERSION $VERSION" >&2
+            exit 1
+          fi
+          # Only reviewed code is signed: the tagged commit must already be on main.
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Tag $TAG points at $GITHUB_SHA, which isn't on main" >&2
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: swift test
+
+      - name: Import the signing certificate
+        env:
+          CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          trap 'rm -f "$CERTIFICATE_PATH"' EXIT
+          if [[ -z "$CERTIFICATE_P12" ]]; then
+            echo "MACOS_CERTIFICATE_P12 isn't set in the release environment" >&2
+            exit 1
+          fi
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$CERTIFICATE_P12" | base64 --decode > "$CERTIFICATE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERTIFICATE_PATH" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          # Apple Development certificates only validate with Apple's WWDR G3 intermediate, which runners may lack.
+          curl -fsSL https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer -o "$RUNNER_TEMP/AppleWWDRCAG3.cer"
+          security import "$RUNNER_TEMP/AppleWWDRCAG3.cer" -k "$KEYCHAIN" || true
+          # A read loop rather than mapfile, which the runner's bash 3.2 may not have.
+          SEARCH_LIST=()
+          while IFS= read -r keychain; do
+            SEARCH_LIST+=("$keychain")
+          done < <(security list-keychains -d user | sed -E 's/^ *"(.*)"$/\1/')
+          security list-keychains -d user -s "$KEYCHAIN" "${SEARCH_LIST[@]}"
+
+          # Signs with whatever identity the certificate holds, so a mismatched identity secret can't fall back to ad-hoc.
+          IDENTITIES="$(security find-identity -v -p codesigning "$KEYCHAIN" | grep -E '^ +[0-9]+\)' || true)"
+          if [[ "$(grep -c . <<< "$IDENTITIES")" -ne 1 ]]; then
+            echo "Expected one signing identity in the certificate, found:" >&2
+            echo "${IDENTITIES:-none}" >&2
+            exit 1
+          fi
+          echo "CODESIGN_IDENTITY=$(awk '{print $2}' <<< "$IDENTITIES")" >> "$GITHUB_ENV"
+          echo "Signing as $(sed -E 's/.*"(.*)"/\1/' <<< "$IDENTITIES")"
+
+      - name: Build
+        run: RELEASE=1 make app
+
+      - name: Notarise and package
+        env:
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        run: |
+          trap 'rm -f "$NOTARY_KEY_PATH"' EXIT
+          if [[ -n "$NOTARY_KEY_P8" ]]; then
+            echo "$NOTARY_KEY_P8" > "$NOTARY_KEY_PATH"
+          else
+            unset NOTARY_KEY_PATH
+          fi
+          SHA256="$(scripts/package-release.sh | tail -1)"
+          echo "SHA256=$SHA256" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: dist/MeetingRush-${{ env.VERSION }}.zip
+          if-no-files-found: error
+
+      - name: Summarise the cask values
+        run: |
+          {
+            echo "### Cask values"
+            echo
+            echo '```ruby'
+            echo "version \"$VERSION\""
+            echo "sha256 \"$SHA256\""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the signing keychain and key files
+        if: always()
+        run: |
+          security delete-keychain "$KEYCHAIN" 2>/dev/null || true
+          rm -f "$CERTIFICATE_PATH" "$NOTARY_KEY_PATH"
+
+  # Only this job can write, attest or mint tokens, and it never runs repository code.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+
+      - name: Attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: MeetingRush-*.zip
+
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" MeetingRush-*.zip --repo "$GITHUB_REPOSITORY" \
+            --title "MeetingRush ${TAG#v}" --generate-notes

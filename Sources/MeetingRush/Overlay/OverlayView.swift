@@ -42,34 +42,32 @@ struct OverlayView: View {
                     .font(.title3)
                     .foregroundStyle(.secondary)
 
-                HStack(spacing: 12) {
-                    // At its natural width the snooze split button leaves its text hard against the edge; extra width centres it.
-                    EqualWidthHStack(spacing: 12, extraWidth: Self.buttonExtraPadding * 2) {
-                        if let join = actions.join, let service = meeting.joinLink?.service {
-                            Button(action: join) {
-                                Text("Join \(service.rawValue)")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .keyboardShortcut(.defaultAction)
+                // At its natural width the snooze split button leaves its text hard against the edge; extra width centres it.
+                EqualWidthHStack(spacing: 12, extraWidth: Self.buttonExtraPadding * 2) {
+                    if let join = actions.join, let service = meeting.joinLink?.service {
+                        Button(action: join) {
+                            Text("Join \(service.rawValue)")
+                                .frame(maxWidth: .infinity)
                         }
-
-                        SnoozeButton(meeting: meeting, snooze: actions.snooze)
+                        .keyboardShortcut(.defaultAction)
                     }
 
-                    Spacer(minLength: 48)
-
-                    Button(action: actions.dismiss) {
-                        Text("Dismiss")
-                            .padding(.horizontal, Self.buttonExtraPadding)
-                    }
-                    .keyboardShortcut(.cancelAction)
+                    SnoozeButton(meeting: meeting, snooze: actions.snooze)
                 }
-                .frame(maxWidth: 640)
                 .controlSize(.extraLarge)
                 .padding(.top, 24)
             }
             .padding(48)
             .frame(maxWidth: 900)
+        }
+        // Out of the way and without a shortcut, so the alert is hard to dismiss by accident.
+        .overlay(alignment: .bottomTrailing) {
+            Button(action: actions.dismiss) {
+                Text("Dismiss")
+                    .padding(.horizontal, Self.buttonExtraPadding)
+            }
+            .controlSize(.large)
+            .padding(40)
         }
     }
 
@@ -105,6 +103,7 @@ private struct SnoozeButton: View {
                 .frame(maxWidth: .infinity)
                 .padding(.trailing, Self.chevronWidth)
         }
+        .keyboardShortcut(.cancelAction)
         .background(ViewAnchor(reference: anchor))
         .overlay(alignment: .trailing) {
             HStack(spacing: 0) {

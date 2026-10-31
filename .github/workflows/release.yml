@@ -73,6 +73,11 @@ jobs:
           security set-keychain-settings -lut 21600 "$KEYCHAIN"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security import "$CERTIFICATE_PATH" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -f pkcs12 -k "$KEYCHAIN"
+          # Without -v this lists certificate-and-key pairs whether or not they validate, so none means the key is missing.
+          if ! security find-identity -p codesigning "$KEYCHAIN" | grep -E '^ +[0-9]+\)' > /dev/null; then
+            echo "The .p12 has no private key: export it from Keychain Access's My Certificates" >&2
+            exit 1
+          fi
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
           # Apple Development certificates only validate with Apple's WWDR G3 intermediate, which runners may lack.
           curl -fsSL https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer -o "$RUNNER_TEMP/AppleWWDRCAG3.cer"

@@ -31,8 +31,22 @@ The cask therefore removes the quarantine flag after installing, until releases 
 ### 2. Export it and add it to GitHub
 
 1. In Keychain Access, open the **login** keychain, **My Certificates**, and find **Apple Development: Your Name**.
-   Right-click it, choose **Export…**, save it as `AppleDevelopment.p12`, and set a strong password.
-2. Add both secrets to the `release` environment, not to the repository:
+   Expand it to check its private key is underneath, then right-click the certificate, choose **Export…**, save it as `AppleDevelopment.p12`, and set a strong password.
+   Exporting from **Certificates** instead leaves the private key out.
+2. Check the file holds a signing identity, in a throwaway keychain:
+
+   ```sh
+   KC="$TMPDIR/check.keychain-db"
+   security delete-keychain "$KC" 2>/dev/null   # a leftover from an earlier attempt
+   security create-keychain -p check "$KC" && security unlock-keychain -p check "$KC"
+   security import AppleDevelopment.p12 -k "$KC" -f pkcs12 -T /usr/bin/codesign   # prompts for the password
+   security find-identity -p codesigning "$KC"   # expect one Apple Development identity under Matching identities
+   security delete-keychain "$KC"
+   ```
+
+   The valid count can be 0 here on a Mac without Apple's WWDR G3 certificate, which doesn't matter for this check.
+   Always finish with the last command: the throwaway keychain holds your private key behind a weak password.
+3. Add both secrets to the `release` environment, not to the repository:
 
    ```sh
    base64 -i AppleDevelopment.p12 | gh secret set MACOS_CERTIFICATE_P12 --env release --repo meetingrush/meetingrush
@@ -41,7 +55,7 @@ The cask therefore removes the quarantine flag after installing, until releases 
 
    The workflow signs with the one identity in the certificate, so there's no identity to keep in step with it.
    It fails if the certificate is missing or holds more than one identity, rather than falling back to ad-hoc signing.
-3. Delete `AppleDevelopment.p12`.
+4. Delete `AppleDevelopment.p12`.
 
 Apple Development certificates expire after a year.
 When it does, create a new one and repeat this step; the next release asks for calendar access once more.
@@ -78,6 +92,7 @@ RELEASE=1 make app
    When it finishes, the run's summary shows the `version` and `sha256` for the cask.
 4. In a `homebrew-tap` worktree, update `version` and `sha256` in `Casks/meetingrush.rb`, check it, and open a pull request.
    The cask also pins the signing team ID, which only changes with the certificate; read it from a release with `codesign -dv MeetingRush.app 2>&1 | grep TeamIdentifier`.
+   The ID in brackets in the certificate's name is a different, per-person ID and fails the cask's check.
 
    ```sh
    brew style Casks/meetingrush.rb
@@ -146,8 +161,18 @@ The first Developer ID release asks for calendar access once more, because the c
 
 ## Troubleshooting
 
+- **"The .p12 has no private key":** the exported file holds only the certificate.
+  Export it again from **My Certificates**, check it as in setup step 2, and replace both secrets.
+- **Keychain Access says the certificate is "not trusted", or `security find-identity -v -p codesigning` finds 0 valid identities:** Apple's WWDR G3 intermediate certificate isn't installed on that Mac.
+  Only local signed builds need it, because the release workflow imports it itself:
+
+  ```sh
+  curl -fsSL https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer -o "$TMPDIR/AppleWWDRCAG3.cer"
+  security add-certificates "$TMPDIR/AppleWWDRCAG3.cer"
+  ```
+
 - **"Expected one signing identity in the certificate, found: none":** the certificate didn't validate.
-  Check it hasn't expired, and that the export included the private key (export from **My Certificates**, not **Certificates**).
+  Check it hasn't expired; a failed WWDR G3 download in the import step also causes this.
 - **"Tag vX.Y.Z points at … which isn't on main":** the tag was made on a branch.
   Delete it, then tag the merge commit on `main`.
 - **The app never asks for calendar access, or shows no meetings:** check the signature carries the calendar entitlement, which the hardened runtime requires:

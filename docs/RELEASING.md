@@ -37,12 +37,15 @@ The cask therefore removes the quarantine flag after installing, until releases 
 
    ```sh
    KC="$TMPDIR/check.keychain-db"
+   security delete-keychain "$KC" 2>/dev/null   # a leftover from an earlier attempt
    security create-keychain -p check "$KC" && security unlock-keychain -p check "$KC"
    security import AppleDevelopment.p12 -k "$KC" -f pkcs12 -T /usr/bin/codesign   # prompts for the password
-   security find-identity -p codesigning "$KC"   # expect one "Apple Development: …" identity
+   security find-identity -p codesigning "$KC"   # expect one Apple Development identity under Matching identities
    security delete-keychain "$KC"
    ```
 
+   The valid count can be 0 here on a Mac without Apple's WWDR G3 certificate, which doesn't matter for this check.
+   Always finish with the last command: the throwaway keychain holds your private key behind a weak password.
 3. Add both secrets to the `release` environment, not to the repository:
 
    ```sh
@@ -164,12 +167,12 @@ The first Developer ID release asks for calendar access once more, because the c
   Only local signed builds need it, because the release workflow imports it itself:
 
   ```sh
-  curl -fsSL https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer -o /tmp/AppleWWDRCAG3.cer
-  security add-certificates /tmp/AppleWWDRCAG3.cer
+  curl -fsSL https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer -o "$TMPDIR/AppleWWDRCAG3.cer"
+  security add-certificates "$TMPDIR/AppleWWDRCAG3.cer"
   ```
 
 - **"Expected one signing identity in the certificate, found: none":** the certificate didn't validate.
-  Check it hasn't expired, and that the export included the private key (export from **My Certificates**, not **Certificates**).
+  Check it hasn't expired; a failed WWDR G3 download in the import step also causes this.
 - **"Tag vX.Y.Z points at … which isn't on main":** the tag was made on a branch.
   Delete it, then tag the merge commit on `main`.
 - **The app never asks for calendar access, or shows no meetings:** check the signature carries the calendar entitlement, which the hardened runtime requires:

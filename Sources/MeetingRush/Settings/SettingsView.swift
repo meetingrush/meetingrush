@@ -93,9 +93,17 @@ private struct GeneralSettings: View {
             Section {
                 Toggle("Launch at login", isOn: Binding(get: { loginItem.isEnabled }, set: { loginItem.setEnabled($0) }))
             }
+
+            Section("About") {
+                LabeledContent("Version", value: Self.version)
+                Link("MeetingRush on GitHub", destination: URL(string: "https://github.com/meetingrush/meetingrush")!)
+            }
         }
         .formStyle(.grouped)
     }
+
+    /// Unbundled builds, such as `swift run`, have no Info.plist to read the version from.
+    private static let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
 
     private var appleSubtitle: String {
         guard coordinator.providersWithAccess.contains(EventKitCalendarProvider.sourceID) else { return "No access" }

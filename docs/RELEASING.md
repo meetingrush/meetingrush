@@ -77,35 +77,38 @@ RELEASE=1 make app
 
 ## Releasing a version
 
-1. On a new branch, set `VERSION` to the new version, then open a pull request and merge it.
-2. Tag the merge commit and push the tag:
+`make release` runs the release one step at a time, using your own `gh` login.
+Run it again after merging each pull request it opens:
 
-   ```sh
-   cd ~/code/meetingrush
-   git fetch --all
-   git tag -a vX.Y.Z -m "MeetingRush X.Y.Z" origin/main
-   git push origin vX.Y.Z
-   ```
+```sh
+make release VERSION=X.Y.Z
+```
 
-3. Follow the workflow with `gh run watch --repo meetingrush/meetingrush`.
+1. The first run opens a pull request on a `release-x-y-z` branch that sets `VERSION`.
+2. Once it's merged, the next run tags the tip of `main` and pushes the tag.
+   It then follows the release workflow until the GitHub Release is published.
    The run fails straight away if the tag doesn't match `VERSION` or isn't on `main`.
-   When it finishes, the run's summary shows the `version` and `sha256` for the cask.
-4. In a `homebrew-tap` worktree, update `version` and `sha256` in `Casks/meetingrush.rb`, check it, and open a pull request.
-   The cask also pins the signing team ID, which only changes with the certificate; read it from a release with `codesign -dv MeetingRush.app 2>&1 | grep TeamIdentifier`.
-   The ID in brackets in the certificate's name is a different, per-person ID and fails the cask's check.
+3. The same run downloads the release zip, checks its provenance attestation and opens a `homebrew-tap` pull request on a `meetingrush-x-y-z` branch, with the new `version` and `sha256` in `Casks/meetingrush.rb`.
+   It runs `brew style` on the cask first.
+4. Once that's merged, run `brew update`, then `make release VERSION=X.Y.Z` once more.
+   It runs `brew audit --cask --strict --online` on the merged cask, which it can't do earlier: `brew audit` only reads the installed tap, not a file in a worktree.
+   Then `brew upgrade --cask meetingrush` installs the new version.
 
-   ```sh
-   brew style Casks/meetingrush.rb
-   brew audit --cask --strict --online meetingrush/tap/meetingrush
-   ```
+The script creates its branches as worktrees next to the others, and expects the tap's clone at `../homebrew-tap`; set `TAP_REPO` if it lives elsewhere.
+Pushing the tag needs organisation admin rights, because of the **Release tags** ruleset.
+If a step fails, fix the cause and run the same command again; it picks up where it stopped.
+If the release workflow fails and needs a code fix, merge the fix, delete the tag with `git push origin :refs/tags/vX.Y.Z`, and run the command again to tag the new `main`.
 
-5. Once it's merged, `brew upgrade --cask meetingrush` installs the new version.
+The cask also pins the signing team ID, which only changes with the certificate, so the script leaves it alone.
+Read it from a release with `codesign -dv MeetingRush.app 2>&1 | grep TeamIdentifier`.
+The ID in brackets in the certificate's name is a different, per-person ID and fails the cask's check.
 
 To check that a downloaded release was built by this workflow from this repository:
 
 ```sh
 gh release download vX.Y.Z --repo meetingrush/meetingrush --pattern 'MeetingRush-*.zip'
-gh attestation verify MeetingRush-X.Y.Z.zip --repo meetingrush/meetingrush
+gh attestation verify MeetingRush-X.Y.Z.zip --repo meetingrush/meetingrush \
+    --signer-workflow meetingrush/meetingrush/.github/workflows/release.yml --source-ref refs/tags/vX.Y.Z
 ```
 
 Until releases are notarised, this and the cask's `sha256` are the only checks on the download, because the cask removes the quarantine flag that would make Gatekeeper check it.

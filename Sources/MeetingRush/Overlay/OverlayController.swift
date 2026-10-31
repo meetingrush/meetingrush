@@ -13,10 +13,49 @@ struct OverlayActions {
 @MainActor
 final class OverlayController {
     private var panels: [NSPanel] = []
+    private var shown: (meeting: Meeting, actions: OverlayActions)?
+    private var screenObserver: NSObjectProtocol?
+    /// Screen frames the panels were built for, main screen first.
+    private var screenFrames: [CGRect] = []
 
     func show(_ meeting: Meeting, actions: OverlayActions) {
-        hide()
-        let screens = NSScreen.screens.sorted { lhs, _ in lhs == NSScreen.main }
+        shown = (meeting, actions)
+        buildPanels()
+        // A panel keeps its old frame when its display goes away or changes resolution, cutting the alert off.
+        if screenObserver == nil {
+            screenObserver = NotificationCenter.default.addObserver(
+                forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.refitPanels() }
+            }
+        }
+    }
+
+    func hide() {
+        closePanels()
+        shown = nil
+        if let screenObserver {
+            NotificationCenter.default.removeObserver(screenObserver)
+        }
+        screenObserver = nil
+    }
+
+    /// Rebuilds only when the screens really changed, as macOS posts the notification several times per change.
+    private func refitPanels() {
+        guard Self.sortedScreens().map(\.frame) != screenFrames else { return }
+        buildPanels()
+    }
+
+    private static func sortedScreens() -> [NSScreen] {
+        NSScreen.screens.sorted { lhs, _ in lhs == NSScreen.main }
+    }
+
+    /// Covers each current screen with a fresh panel, the key one on the main screen.
+    private func buildPanels() {
+        guard let (meeting, actions) = shown else { return }
+        closePanels()
+        let screens = Self.sortedScreens()
+        screenFrames = screens.map(\.frame)
         panels = screens.map { screen in
             // Non-activating, so the alert takes keyboard focus even when macOS declines to activate the app,
             // which it does while the user is working in another app.
@@ -37,7 +76,7 @@ final class OverlayController {
         panels.first?.makeKeyAndOrderFront(nil)
     }
 
-    func hide() {
+    private func closePanels() {
         panels.forEach { $0.close() }
         panels = []
     }

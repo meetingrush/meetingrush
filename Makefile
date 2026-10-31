@@ -5,7 +5,7 @@ export BUNDLE_ID CODESIGN_IDENTITY RELEASE
 APP := dist/MeetingRush.app
 INSTALL_DIR ?= $(HOME)/Applications
 
-.PHONY: app run install test clean icons
+.PHONY: app run install test clean icons release
 
 app:
 	scripts/bundle.sh
@@ -26,6 +26,11 @@ test:
 icons:
 	rsvg-convert -f pdf Resources/Icons/MenuBarIcon.svg -o Resources/Icons/MenuBarIcon.pdf
 	scripts/make-app-icon.sh
+
+# Each run does the next release step; see docs/RELEASING.md.
+release:
+	@test -n "$(VERSION)" || { echo "Usage: make release VERSION=X.Y.Z" >&2; exit 1; }
+	scripts/release.sh "$(VERSION)"
 
 clean:
 	rm -rf .build dist

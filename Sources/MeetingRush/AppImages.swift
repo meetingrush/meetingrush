@@ -1,5 +1,7 @@
 import AppKit
 
+// NSImage isn't Sendable in older SDKs, so a shared image must belong to the main actor there.
+@MainActor
 enum AppImages {
     /// The running-figure logo as a template image, so it takes the menu bar's or the view's foreground colour.
     /// Falls back to an SF Symbol when run outside the app bundle, e.g. with `swift run`.

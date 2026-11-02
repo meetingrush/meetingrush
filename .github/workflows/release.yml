@@ -121,7 +121,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release
-          path: dist/MeetingRush-${{ steps.tag.outputs.version }}.zip
+          path: dist.noindex/MeetingRush-${{ steps.tag.outputs.version }}.zip
           if-no-files-found: error
 
       - name: Summarise the cask values

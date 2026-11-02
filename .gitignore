@@ -1,5 +1,5 @@
 .build/
 .swiftpm/
-dist/
+dist.noindex/
 local.mk
 .DS_Store

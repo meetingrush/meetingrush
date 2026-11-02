@@ -36,7 +36,7 @@ If the same account is also added to Calendar.app, each meeting still alerts onc
 The app builds with the Xcode Command Line Tools alone (`xcode-select --install`):
 
 ```sh
-make run       # build dist/MeetingRush.app and launch it
+make run       # build dist.noindex/MeetingRush.app and launch it
 make install   # copy it to ~/Applications
 ```
 

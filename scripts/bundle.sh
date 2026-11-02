@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds dist/MeetingRush.app from source.
+# Builds dist.noindex/MeetingRush.app from source.
 # Env: BUNDLE_ID, CODESIGN_IDENTITY (default "-", ad-hoc), RELEASE=1 for a distributable build.
 set -euo pipefail
 
@@ -9,7 +9,8 @@ APP_NAME="MeetingRush"
 BUNDLE_ID="${BUNDLE_ID:-dev.meetingrush.MeetingRush}"
 CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
 VERSION="$(tr -d '[:space:]' < VERSION)"
-APP="dist/${APP_NAME}.app"
+# Spotlight skips .noindex folders, so local builds stay out of search next to the installed app.
+APP="dist.noindex/${APP_NAME}.app"
 
 BUILD_FLAGS=(-c release)
 SIGN_FLAGS=(--force --sign "$CODESIGN_IDENTITY" --identifier "$BUNDLE_ID")

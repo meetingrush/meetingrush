@@ -2,7 +2,7 @@
 -include local.mk
 export BUNDLE_ID CODESIGN_IDENTITY RELEASE
 
-APP := dist/MeetingRush.app
+APP := dist.noindex/MeetingRush.app
 INSTALL_DIR ?= $(HOME)/Applications
 
 .PHONY: app run install test clean icons release
@@ -33,4 +33,4 @@ release:
 	scripts/release.sh "$(VERSION)"
 
 clean:
-	rm -rf .build dist
+	rm -rf .build dist.noindex

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Zips dist/MeetingRush.app into dist/MeetingRush-<version>.zip for a GitHub Release and prints its SHA-256.
+# Zips dist.noindex/MeetingRush.app into dist.noindex/MeetingRush-<version>.zip for a GitHub Release and prints its SHA-256.
 # Notarises when NOTARY_KEY_PATH, NOTARY_KEY_ID and NOTARY_ISSUER_ID are all set; fails if only some are set,
 # or if none are and the app is signed with a Developer ID, which is only worth shipping notarised.
 set -euo pipefail
@@ -7,8 +7,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 VERSION="$(tr -d '[:space:]' < VERSION)"
-APP="dist/MeetingRush.app"
-ZIP="dist/MeetingRush-${VERSION}.zip"
+APP="dist.noindex/MeetingRush.app"
+ZIP="dist.noindex/MeetingRush-${VERSION}.zip"
 
 codesign --verify --strict "$APP"
 
@@ -26,11 +26,11 @@ if (( ${#MISSING[@]} == 3 )) && codesign -dv --verbose=2 "$APP" 2>&1 | grep -q '
 fi
 
 if (( ${#MISSING[@]} == 0 )); then
-    ditto -c -k --keepParent "$APP" "dist/notarize.zip"
-    xcrun notarytool submit "dist/notarize.zip" \
+    ditto -c -k --keepParent "$APP" "dist.noindex/notarize.zip"
+    xcrun notarytool submit "dist.noindex/notarize.zip" \
         --key "$NOTARY_KEY_PATH" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" --wait
     xcrun stapler staple "$APP"
-    rm "dist/notarize.zip"
+    rm "dist.noindex/notarize.zip"
 else
     echo "Notarisation skipped: no App Store Connect API key configured."
 fi

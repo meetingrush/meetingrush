@@ -39,6 +39,8 @@ final class GoogleCalendarProvider: CalendarProvider {
     @ObservationIgnored private var googleCalendarIDs: [CalendarInfo.ID: (account: String, calendarID: String)] = [:]
     @ObservationIgnored private var connectTask: Task<Void, Never>?
     @ObservationIgnored private var onChange: (@MainActor () -> Void)?
+    /// Called when a Google account finishes signing in.
+    @ObservationIgnored var onAccountAdded: (@MainActor () -> Void)?
 
     private static let calendarListLifetime: TimeInterval = 15 * 60
     private static let eventsLifetime: TimeInterval = 5 * 60
@@ -221,7 +223,7 @@ final class GoogleCalendarProvider: CalendarProvider {
         }
         accountErrors[account] = nil
         calendarCache[account] = nil
-        NSApp.activate()
+        onAccountAdded?()
         onChange?()
     }
 

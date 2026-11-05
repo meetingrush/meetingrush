@@ -29,8 +29,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             reason: "Meeting alerts must fire on time"
         )
         SettingsKey.registerDefaults()
+        NSApp.mainMenu = AppMenu.make()
         let settingsWindow = SettingsWindowController(rootView: SettingsView(coordinator: coordinator, google: google, loginItem: LoginItem()))
         self.settingsWindow = settingsWindow
+        google.onAccountAdded = settingsWindow.bringToFront
         menuPanel = MenuPanelController(coordinator: coordinator, openSettings: settingsWindow.show)
         Task { await coordinator.start() }
     }
